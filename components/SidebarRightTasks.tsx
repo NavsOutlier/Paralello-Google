@@ -480,17 +480,8 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
               {/* Title */}
               <h2 className="text-lg font-bold text-text-main mb-3 leading-tight">{selectedTask.title}</h2>
               
-              {/* Meta Info Row: Tags & Date */}
-              <div className="flex flex-wrap items-center gap-3 mb-4 relative z-50">
-                 {/* Due Date Display */}
-                 {selectedTask.dueDate && (
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 text-red-600 rounded text-[11px] font-bold border border-red-100 shadow-sm">
-                        <span className="material-symbols-outlined text-[14px]">calendar_today</span>
-                        Prazo: {formatDateDisplay(selectedTask.dueDate)}
-                    </div>
-                )}
-
-                {/* IMPROVED TAGS DISPLAY WITH COLORS */}
+              {/* Row 1: Tags */}
+              <div className="flex flex-wrap items-center gap-2 mb-4 relative z-50">
                 {selectedTask.tags.map(tag => (
                     <div key={tag} className={`group/tag flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${getTagStyles(tag)}`}>
                         {tag}
@@ -527,7 +518,7 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
                             </button>
                         </div>
 
-                        {/* EXISTING TAGS SUGGESTIONS - ALWAYS VISIBLE OR FILTERED */}
+                        {/* EXISTING TAGS SUGGESTIONS */}
                         <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-gray-100 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-1">
                             <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{newTagText ? 'Sugestões' : 'Existentes'}</span>
@@ -569,35 +560,46 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
                 )}
               </div>
 
-              {/* Controls Row: Assignee & Checklist Button */}
-              <div className="flex items-center gap-3 relative z-10">
-                
-                {/* ASSIGNEE STACK - FIXED OVERLAP ISSUE */}
-                <div className="flex items-center gap-2 bg-gray-50 pl-1 pr-3 py-1.5 rounded-full border border-gray-200" title="Responsáveis">
-                    <div className="flex items-center -space-x-2">
-                        {selectedTask.assignees.slice(0, 3).map((assignee, index) => (
-                            <div 
-                                key={index}
-                                className="bg-center bg-no-repeat bg-cover rounded-full h-7 w-7 border-2 border-white shadow-sm relative z-10 hover:z-20 hover:scale-110 transition-transform" 
-                                style={{ backgroundImage: `url("${assignee.avatar}")` }}
-                                title={assignee.name}
-                            ></div>
-                        ))}
-                        {selectedTask.assignees.length > 3 && (
-                            <div className="h-7 w-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[9px] font-bold text-gray-600 relative z-0">
-                                +{selectedTask.assignees.length - 3}
-                            </div>
-                        )}
+              {/* Row 2: Metadata Footer (Due Date, Assignees, Checklist) */}
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100 relative z-10">
+                <div className="flex items-center gap-3">
+                    {/* Due Date */}
+                    {selectedTask.dueDate && (
+                        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-red-50 text-red-600 rounded-lg text-[11px] font-bold border border-red-100 shadow-sm" title="Prazo de Entrega">
+                            <span className="material-symbols-outlined text-[16px]">calendar_today</span>
+                            {formatDateDisplay(selectedTask.dueDate)}
+                        </div>
+                    )}
+
+                    {/* Assignee Stack */}
+                    <div className="flex items-center gap-2 bg-gray-50 pl-1 pr-3 py-1.5 rounded-full border border-gray-200" title="Responsáveis">
+                        <div className="flex items-center -space-x-2">
+                            {selectedTask.assignees.slice(0, 3).map((assignee, index) => (
+                                <div 
+                                    key={index}
+                                    className="bg-center bg-no-repeat bg-cover rounded-full h-7 w-7 border-2 border-white shadow-sm relative z-10 hover:z-20 hover:scale-110 transition-transform" 
+                                    style={{ backgroundImage: `url("${assignee.avatar}")` }}
+                                    title={assignee.name}
+                                ></div>
+                            ))}
+                            {selectedTask.assignees.length > 3 && (
+                                <div className="h-7 w-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[9px] font-bold text-gray-600 relative z-0">
+                                    +{selectedTask.assignees.length - 3}
+                                </div>
+                            )}
+                        </div>
+                         {selectedTask.assignees.length > 0 && (
+                             <span className="text-xs font-medium text-text-main truncate max-w-[80px] hidden sm:block">
+                                {selectedTask.assignees.length === 1 ? selectedTask.assignees[0].name.split(' ')[0] : 'Equipe'}
+                             </span>
+                         )}
                     </div>
-                    <span className="text-xs font-medium text-text-main truncate max-w-[100px]">
-                        {selectedTask.assignees.length === 1 ? selectedTask.assignees[0].name.split(' ')[0] : 'Equipe'}
-                    </span>
                 </div>
 
                 {/* Checklist Button */}
                 <button 
                   onClick={() => setIsChecklistOpen(true)}
-                  className="flex items-center gap-2 bg-white hover:bg-gray-50 text-text-secondary px-3 py-1.5 rounded-full border border-gray-200 transition-all hover:border-primary/50 group hover:shadow-sm"
+                  className="flex items-center gap-2 bg-white hover:bg-gray-50 text-text-secondary px-3 py-1.5 rounded-lg border border-gray-200 transition-all hover:border-primary/50 group hover:shadow-sm"
                 >
                   <span className="material-symbols-outlined text-[18px] group-hover:text-primary">check_box</span>
                   <span className="text-xs font-medium">
@@ -1026,59 +1028,60 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
             
             <h3 className="text-sm font-bold text-text-main mb-2 line-clamp-2 leading-snug group-hover:text-primary transition-colors">{task.title}</h3>
             
-            {/* Description Removed from List View as requested */}
-
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-                {/* Due Date in List */}
-                 {task.dueDate && (
-                    <div className="flex items-center gap-1 text-[10px] text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
-                        <span className="material-symbols-outlined text-[12px]">calendar_today</span>
-                        {formatDateDisplay(task.dueDate)}
-                    </div>
-                )}
-
-                {task.tags.map(tag => (
-                  <span key={tag} className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getTagStyles(tag)}`}>
-                    {tag}
-                  </span>
-                ))}
-            </div>
-
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
-              <div className="flex items-center gap-2">
-                {/* Avatar Stack in List */}
-                <div className="flex -space-x-1.5">
-                    {task.assignees.slice(0, 3).map((assignee, index) => (
-                        <div 
-                            key={index}
-                            className="bg-center bg-no-repeat bg-cover rounded-full h-6 w-6 border-2 border-white shadow-sm" 
-                            style={{ backgroundImage: `url("${assignee.avatar || 'https://via.placeholder.com/24'}")` }}
-                        ></div>
+             {/* TAGS ROW - MOVED BELOW TITLE */}
+             {task.tags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                    {task.tags.map(tag => (
+                    <span key={tag} className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getTagStyles(tag)}`}>
+                        {tag}
+                    </span>
                     ))}
-                    {task.assignees.length > 3 && (
-                        <div className="h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-500">
-                            +{task.assignees.length - 3}
+                </div>
+            )}
+
+            {/* BOTTOM ROW: Deadline + Assignees + Checklist + Comments */}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                <div className="flex items-center gap-3">
+                    {/* Due Date */}
+                    {task.dueDate && (
+                        <div className="flex items-center gap-1 text-[10px] text-red-600 font-bold bg-red-50 px-2 py-1 rounded border border-red-100" title="Prazo">
+                            <span className="material-symbols-outlined text-[12px]">calendar_today</span>
+                            {formatDateDisplay(task.dueDate)}
                         </div>
                     )}
+
+                    {/* Assignees */}
+                    <div className="flex items-center gap-2">
+                        <div className="flex -space-x-1.5">
+                            {task.assignees.slice(0, 3).map((assignee, index) => (
+                                <div 
+                                    key={index}
+                                    className="bg-center bg-no-repeat bg-cover rounded-full h-6 w-6 border-2 border-white shadow-sm" 
+                                    style={{ backgroundImage: `url("${assignee.avatar || 'https://via.placeholder.com/24'}")` }}
+                                    title={assignee.name}
+                                ></div>
+                            ))}
+                            {task.assignees.length > 3 && (
+                                <div className="h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-gray-500">
+                                    +{task.assignees.length - 3}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <span className="text-xs text-text-secondary truncate max-w-[100px]">
-                    {task.assignees.length === 1 ? task.assignees[0].name.split(' ')[0] : ''}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {task.sourceMessage && (
-                  <span className="material-symbols-outlined text-[14px] text-primary" title="Mensagem vinculada">link</span>
-                )}
-                {task.checklist.length > 0 && (
-                  <div className="flex items-center gap-0.5 text-gray-400 text-xs mr-2" title="Checklist">
-                    <span className="material-symbols-outlined text-[14px]">check_box</span> 
-                    {task.checklist.filter(c => c.completed).length}/{task.checklist.length}
-                  </div>
-                )}
-                <div className="flex items-center gap-0.5 text-gray-400 text-xs ml-1">
-                  <span className="material-symbols-outlined text-[14px]">chat_bubble</span> {task.commentsCount}
+
+                <div className="flex items-center gap-3">
+                     {task.checklist.length > 0 && (
+                        <div className="flex items-center gap-1 text-gray-500 text-xs bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100" title="Checklist">
+                            <span className="material-symbols-outlined text-[14px]">check_box</span> 
+                            <span className="font-medium">{task.checklist.filter(c => c.completed).length}/{task.checklist.length}</span>
+                        </div>
+                    )}
+                     {/* Comments */}
+                     <div className="flex items-center gap-1 text-gray-400 text-xs">
+                         <span className="material-symbols-outlined text-[14px]">chat_bubble</span> {task.commentsCount}
+                     </div>
                 </div>
-              </div>
             </div>
           </div>
         ))}
