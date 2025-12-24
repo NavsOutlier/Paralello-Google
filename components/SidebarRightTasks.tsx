@@ -11,6 +11,26 @@ interface SidebarRightTasksProps {
   onEditTask: (task: Task) => void;
 }
 
+// Consistent colors based on string hash (same as in Modal)
+const getTagStyles = (tag: string) => {
+  const colors = [
+    'bg-red-50 text-red-700 border-red-200',
+    'bg-blue-50 text-blue-700 border-blue-200',
+    'bg-green-50 text-green-700 border-green-200',
+    'bg-purple-50 text-purple-700 border-purple-200',
+    'bg-orange-50 text-orange-700 border-orange-200',
+    'bg-pink-50 text-pink-700 border-pink-200',
+    'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'bg-teal-50 text-teal-700 border-teal-200',
+  ];
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({ 
   tasks, 
   onAddTask,
@@ -34,6 +54,10 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
   const [isAutomationMenuOpen, setIsAutomationMenuOpen] = useState(false);
   const [activeStatusMenuTaskId, setActiveStatusMenuTaskId] = useState<string | null>(null);
   
+  // Mention State
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  
   // Filter states
   const [activeFilter, setActiveFilter] = useState<'status' | 'assignee' | 'tags' | null>(null);
   const [filterCriteria, setFilterCriteria] = useState<{
@@ -46,10 +70,11 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
   const automationMenuRef = useRef<HTMLDivElement>(null);
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
+  const tagInputContainerRef = useRef<HTMLDivElement>(null); // New Ref for tag input area
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
 
-  // Derived data for filters (memoized conceptually)
+  // Derived data for filters and mentions
   const uniqueAssignees = Array.from(new Map(tasks.flatMap(t => t.assignees).map(u => [u.id, u])).values());
   const uniqueTags = Array.from(new Set(tasks.flatMap(t => t.tags)));
 
@@ -73,6 +98,11 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
       }
       if (filterMenuRef.current && !filterMenuRef.current.contains(target as Node)) {
         setActiveFilter(null);
+      }
+      // Close tag input if clicked outside
+      if (tagInputContainerRef.current && !tagInputContainerRef.current.contains(target as Node)) {
+        setIsAddingTag(false);
+        setNewTagText('');
       }
       // Close quick status menu if clicking outside any trigger
       if (!target.closest('.status-menu-trigger')) {
@@ -168,14 +198,42 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
     e.preventDefault();
     if (!selectedTask || !newTagText.trim()) return;
     
+    const textToAdd = newTagText.trim();
+    
+    // Check if tag already exists (case insensitive) to prevent duplicates like "Design" and "design"
+    const existingTag = uniqueTags.find(t => t.toLowerCase() === textToAdd.toLowerCase());
+    const finalTag = existingTag || textToAdd;
+
+    if (selectedTask.tags.includes(finalTag)) {
+      setNewTagText('');
+      setIsAddingTag(false);
+      return;
+    }
+
     const updatedTask = {
         ...selectedTask,
-        tags: [...selectedTask.tags, newTagText.trim()]
+        tags: [...selectedTask.tags, finalTag]
     };
     onUpdateTask(updatedTask);
     setNewTagText('');
     setIsAddingTag(false);
   };
+
+  const handleSelectExistingTag = (tag: string) => {
+    if (!selectedTask) return;
+    if (selectedTask.tags.includes(tag)) {
+        setNewTagText('');
+        setIsAddingTag(false);
+        return;
+    }
+    const updatedTask = {
+        ...selectedTask,
+        tags: [...selectedTask.tags, tag]
+    };
+    onUpdateTask(updatedTask);
+    setNewTagText('');
+    setIsAddingTag(false);
+  }
 
   const removeTag = (tagToRemove: string) => {
     if (!selectedTask) return;
@@ -186,7 +244,49 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
     onUpdateTask(updatedTask);
   };
 
-  // --- COMMENTS ---
+  // --- COMMENTS & MENTIONS ---
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewComment(value);
+
+    // Simple mention detection: Check if the current word being typed starts with @
+    const cursorPosition = e.target.selectionStart;
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const words = textBeforeCursor.split(/\s/);
+    const currentWord = words[words.length - 1];
+
+    if (currentWord.startsWith('@')) {
+      setMentionQuery(currentWord.slice(1));
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const insertMention = (userName: string) => {
+    if (!commentInputRef.current) return;
+    
+    const cursorPosition = commentInputRef.current.selectionStart;
+    const textBeforeCursor = newComment.slice(0, cursorPosition);
+    const textAfterCursor = newComment.slice(cursorPosition);
+    
+    // Find where the last '@' started
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    const textPreMention = textBeforeCursor.slice(0, lastAtIndex);
+    
+    const newText = `${textPreMention}@${userName} ${textAfterCursor}`;
+    
+    setNewComment(newText);
+    setMentionQuery(null);
+    
+    // Focus back and set cursor
+    setTimeout(() => {
+        if (commentInputRef.current) {
+            commentInputRef.current.focus();
+            // Optional: Set cursor position after the inserted name
+        }
+    }, 0);
+  };
 
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,6 +307,7 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
 
     onUpdateTask(updatedTask);
     setNewComment('');
+    setMentionQuery(null);
   };
 
   const renderSourceMessageSnippet = (message: Message, context: 'comment-me' | 'comment-other' | 'standalone' = 'standalone') => {
@@ -262,6 +363,13 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
     const completedCount = selectedTask.checklist.filter(c => c.completed).length;
     const totalCount = selectedTask.checklist.length;
     const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    
+    // Filter tags for suggestions (excluding tags already added to this task)
+    // Show all tags if input is empty, otherwise filter
+    const availableTags = uniqueTags.filter(t => 
+        !selectedTask.tags.includes(t) && 
+        (newTagText === '' || t.toLowerCase().includes(newTagText.toLowerCase()))
+    );
 
     return (
       <>
@@ -275,7 +383,6 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
               >
                 <span className="material-symbols-outlined">arrow_back</span>
               </button>
-              <span className="text-xs font-mono text-gray-400">#{selectedTask.code}</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -374,7 +481,7 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
               <h2 className="text-lg font-bold text-text-main mb-3 leading-tight">{selectedTask.title}</h2>
               
               {/* Meta Info Row: Tags & Date */}
-              <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="flex flex-wrap items-center gap-3 mb-4 relative z-50">
                  {/* Due Date Display */}
                  {selectedTask.dueDate && (
                     <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 text-red-600 rounded text-[11px] font-bold border border-red-100 shadow-sm">
@@ -383,37 +490,74 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
                     </div>
                 )}
 
-                {/* IMPROVED TAGS DISPLAY */}
+                {/* IMPROVED TAGS DISPLAY WITH COLORS */}
                 {selectedTask.tags.map(tag => (
-                    <div key={tag} className="group/tag flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-[11px] font-semibold border border-gray-200 hover:bg-gray-200 transition-colors">
+                    <div key={tag} className={`group/tag flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${getTagStyles(tag)}`}>
                         {tag}
-                        <button onClick={() => removeTag(tag)} className="text-gray-400 hover:text-red-500 hover:scale-110 transition-all">
+                        <button onClick={() => removeTag(tag)} className="hover:text-red-600 hover:scale-110 transition-all opacity-60 hover:opacity-100">
                             <span className="material-symbols-outlined text-[14px] flex">cancel</span>
                         </button>
                     </div>
                 ))}
                 
                 {isAddingTag ? (
-                    <form onSubmit={handleAddTag} className="flex items-center animate-in fade-in slide-in-from-left-2 duration-200">
-                        <div className="relative flex items-center">
+                    <div ref={tagInputContainerRef} className="relative flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                         {/* Styled Input Container with Plus Button integrated */}
+                         <div className="relative group">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 material-symbols-outlined text-[16px]">tag</span>
                             <input 
                                 autoFocus
                                 type="text"
                                 value={newTagText}
                                 onChange={e => setNewTagText(e.target.value)}
-                                onBlur={() => { if(!newTagText) setIsAddingTag(false) }}
-                                className="w-32 pl-2 pr-7 py-1 text-xs border border-primary rounded-lg outline-none shadow-sm focus:ring-1 focus:ring-primary"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleAddTag(e);
+                                    if (e.key === 'Escape') { setIsAddingTag(false); setNewTagText(''); }
+                                }}
+                                className="w-48 pl-8 pr-8 py-1.5 text-xs border border-primary ring-2 ring-primary/10 rounded-lg outline-none shadow-lg text-text-main font-medium bg-white transition-all"
                                 placeholder="Nova tag..."
                             />
+                            {/* Action Button inside Input */}
                             <button 
-                                type="submit"
-                                onMouseDown={(e) => e.preventDefault()} // Prevent blur before submit
-                                className="absolute right-1 text-primary hover:text-primary-dark"
+                                onClick={handleAddTag}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 hover:text-primary hover:bg-gray-50 transition-colors"
+                                title="Adicionar (Enter)"
                             >
-                                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                                <span className="material-symbols-outlined text-[18px]">{newTagText ? 'check_circle' : 'add_circle'}</span>
                             </button>
                         </div>
-                    </form>
+
+                        {/* EXISTING TAGS SUGGESTIONS - ALWAYS VISIBLE OR FILTERED */}
+                        <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-gray-100 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-1">
+                            <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{newTagText ? 'Sugestões' : 'Existentes'}</span>
+                                <span className="text-[9px] text-gray-400 bg-gray-100 px-1.5 rounded">ESC para sair</span>
+                            </div>
+                            <div className="max-h-40 overflow-y-auto custom-scrollbar p-1">
+                                {availableTags.length === 0 && (
+                                    <div className="px-3 py-3 text-xs text-gray-400 italic text-center">
+                                        {newTagText ? (
+                                            <span className="flex items-center justify-center gap-1">
+                                                <span className="material-symbols-outlined text-[14px]">add</span>
+                                                Criar "{newTagText}"
+                                            </span>
+                                        ) : 'Nenhuma tag disponível'}
+                                    </div>
+                                )}
+                                {availableTags.map(tag => (
+                                    <button 
+                                        key={tag}
+                                        onClick={() => handleSelectExistingTag(tag)}
+                                        className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-50 text-text-main flex items-center gap-2 transition-colors group/opt"
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${getTagStyles(tag).split(' ')[0]}`}></span>
+                                        <span className="font-medium">{tag}</span>
+                                        <span className="material-symbols-outlined text-[16px] ml-auto text-gray-300 opacity-0 group-hover/opt:opacity-100 transition-opacity text-primary">add_circle</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 ) : (
                     <button 
                         onClick={() => setIsAddingTag(true)}
@@ -426,7 +570,7 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
               </div>
 
               {/* Controls Row: Assignee & Checklist Button */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 relative z-10">
                 
                 {/* ASSIGNEE STACK */}
                 <div className="flex items-center -space-x-2 bg-gray-50 pl-1 pr-3 py-1.5 rounded-full border border-gray-200" title="Responsáveis">
@@ -462,7 +606,7 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
             </div>
 
             {/* LOWER SECTION: Internal Chat Interface */}
-            <div className="flex-1 flex flex-col bg-chat-bg-internal relative border-t border-gray-200 min-h-0">
+            <div className="flex-1 flex flex-col bg-chat-bg-internal relative border-t border-gray-200 min-h-0 z-0">
               
               {/* Chat Header */}
               <div className="px-4 py-2 bg-white/50 backdrop-blur-sm border-b border-gray-200/50 flex items-center gap-2 z-10 shrink-0">
@@ -482,6 +626,8 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
                 ) : (
                   selectedTask.comments.map(comment => {
                     const isMe = comment.sender.id === currentUser.id;
+                    const parts = comment.text.split(/(@\w+(?:\s\w+)?)/g); // Simple split for highlighting
+
                     return (
                       <div key={comment.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full animate-in slide-in-from-bottom-2 duration-200`}>
                         <div className={`p-2 rounded-lg shadow-sm text-sm relative max-w-[90%] min-w-[120px] border ${
@@ -499,7 +645,11 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
                             </div>
                           )}
                           
-                          <p className="whitespace-pre-wrap leading-relaxed text-sm mb-1 px-1">{comment.text}</p>
+                          <p className="whitespace-pre-wrap leading-relaxed text-sm mb-1 px-1">
+                            {parts.map((part, index) => 
+                                part.startsWith('@') ? <span key={index} className="text-blue-600 font-bold bg-blue-50 px-1 rounded">{part}</span> : part
+                            )}
+                          </p>
                           
                           {/* Timestamp & Status */}
                           <div className="flex items-center justify-end gap-1 select-none px-1">
@@ -514,22 +664,65 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
               </div>
 
               {/* Input Area */}
-              <form onSubmit={handleAddComment} className="p-3 bg-white border-t border-gray-200 z-10">
+              <form onSubmit={handleAddComment} className="p-3 bg-white border-t border-gray-200 z-10 relative">
+                
+                {/* MENTION DROPDOWN */}
+                {mentionQuery !== null && (
+                    <div className="absolute bottom-full left-3 mb-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in slide-in-from-bottom-2">
+                        <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Mencionar</span>
+                             <span className="text-[10px] text-gray-400">@{mentionQuery}</span>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto custom-scrollbar p-1">
+                            {uniqueAssignees
+                                .filter(u => u.name.toLowerCase().includes(mentionQuery!.toLowerCase()))
+                                .map(user => (
+                                <button
+                                    key={user.id}
+                                    type="button"
+                                    onClick={() => insertMention(user.name.split(' ')[0])} // Just first name for simplicity
+                                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors group"
+                                >
+                                    <div 
+                                        className="bg-center bg-no-repeat bg-cover rounded-full h-8 w-8 border border-gray-200 group-hover:border-blue-200" 
+                                        style={{ backgroundImage: `url("${user.avatar}")` }}
+                                    ></div>
+                                    <div className="flex flex-col items-start">
+                                        <span className="text-sm font-bold text-text-main group-hover:text-blue-700">{user.name}</span>
+                                        <span className="text-[10px] text-gray-400">@{user.name.toLowerCase().replace(/\s/g, '')}</span>
+                                    </div>
+                                </button>
+                            ))}
+                            {uniqueAssignees.filter(u => u.name.toLowerCase().includes(mentionQuery!.toLowerCase())).length === 0 && (
+                                <div className="px-4 py-3 text-xs text-gray-400 text-center italic">
+                                    Ninguém encontrado...
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex gap-2 items-end">
                   <div className="flex-1 bg-gray-50 border border-gray-300 rounded-2xl flex items-center px-3 py-1.5 focus-within:ring-1 focus-within:ring-slate-400 focus-within:border-slate-400 transition-all shadow-inner">
                     <button type="button" className="text-gray-400 hover:text-gray-600 p-1 mr-1">
                       <span className="material-symbols-outlined text-[20px]">mood</span>
                     </button>
                     <textarea 
+                      ref={commentInputRef}
                       value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Comentário interno..."
+                      onChange={handleCommentChange}
+                      placeholder="Comentário interno (use @ para mencionar)..."
                       rows={1}
                       className="flex-1 bg-transparent border-none focus:ring-0 text-sm outline-none resize-none max-h-24 py-1.5 placeholder:text-gray-400"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleAddComment(e);
+                           if (mentionQuery !== null) {
+                               e.preventDefault(); // Prevent submit if selecting mention via keyboard (basic impl)
+                               // Ideally handle arrow keys here
+                           } else {
+                               e.preventDefault();
+                               handleAddComment(e);
+                           }
                         }
                       }}
                     />
@@ -752,7 +945,7 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
                     onClick={() => { setFilterCriteria({...filterCriteria, tag}); setActiveFilter(null); }}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 text-text-main transition-colors"
                   >
-                     <span className="material-symbols-outlined text-[14px] text-gray-400">tag</span>
+                     <span className={`w-3 h-3 rounded-full mr-1 ${getTagStyles(tag).split(' ')[0]}`}></span>
                      {tag}
                   </button>
                 ))}
@@ -818,7 +1011,6 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
                     )}
                 </div>
                 
-                <span className="text-[10px] text-gray-400">#{task.code}</span>
               </div>
               <span className="text-[10px] text-gray-400 whitespace-nowrap">{task.date}</span>
             </div>
@@ -837,7 +1029,7 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
                 )}
 
                 {task.tags.map(tag => (
-                  <span key={tag} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-medium border border-gray-200">
+                  <span key={tag} className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getTagStyles(tag)}`}>
                     {tag}
                   </span>
                 ))}

@@ -4,14 +4,34 @@ import { User, Task, Message } from '../types';
 interface NewTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (title: string, description: string, assigneeIds: string[], dueDate: string, status: Task['status'], sourceMessage?: Message) => void;
-  onEdit: (taskId: string, title: string, description: string, assigneeIds: string[], dueDate: string, status: Task['status']) => void;
+  onSave: (title: string, description: string, assigneeIds: string[], dueDate: string, status: Task['status'], tags: string[], sourceMessage?: Message) => void;
+  onEdit: (taskId: string, title: string, description: string, assigneeIds: string[], dueDate: string, status: Task['status'], tags: string[]) => void;
   onAttach: (taskId: string, comment: string, sourceMessage?: Message) => void;
   users: User[];
   existingTasks: Task[];
   initialMessage?: Message | null;
   taskToEdit?: Task | null;
 }
+
+// Consistent colors based on string hash
+const getTagStyles = (tag: string) => {
+  const colors = [
+    'bg-red-50 text-red-700 border-red-200',
+    'bg-blue-50 text-blue-700 border-blue-200',
+    'bg-green-50 text-green-700 border-green-200',
+    'bg-purple-50 text-purple-700 border-purple-200',
+    'bg-orange-50 text-orange-700 border-orange-200',
+    'bg-pink-50 text-pink-700 border-pink-200',
+    'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'bg-teal-50 text-teal-700 border-teal-200',
+  ];
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
 
 export const NewTaskModal: React.FC<NewTaskModalProps> = ({ 
   isOpen, 
@@ -33,6 +53,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const [status, setStatus] = useState<Task['status']>('Pendente');
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   
+  // Tags State
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+
   // Dropdown States
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
@@ -75,6 +99,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         setDueDate(taskToEdit.dueDate || '');
         setStatus(taskToEdit.status);
         setSelectedAssigneeIds(taskToEdit.assignees.map(u => u.id));
+        setTags(taskToEdit.tags || []);
       } else {
         setMode('create'); 
         setTitle('');
@@ -83,6 +108,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         setDueDate('');
         setStatus('Pendente');
         setSelectedAssigneeIds([]);
+        setTags([]);
         
         if (existingTasks.length > 0) {
           setSelectedTaskId(existingTasks[0].id);
@@ -96,7 +122,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim()) {
-      onSave(title, description, selectedAssigneeIds, dueDate, status, initialMessage || undefined);
+      onSave(title, description, selectedAssigneeIds, dueDate, status, tags, initialMessage || undefined);
       onClose();
     }
   };
@@ -104,7 +130,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim() && taskToEdit) {
-      onEdit(taskToEdit.id, title, description, selectedAssigneeIds, dueDate, status);
+      onEdit(taskToEdit.id, title, description, selectedAssigneeIds, dueDate, status, tags);
       onClose();
     }
   };
@@ -115,6 +141,21 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       onAttach(selectedTaskId, comment, initialMessage || undefined);
       onClose();
     }
+  };
+
+  // Tag Handlers
+  const handleAddTag = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      e.preventDefault();
+      if (!tags.includes(tagInput.trim())) {
+        setTags([...tags, tagInput.trim()]);
+      }
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(t => t !== tagToRemove));
   };
 
   const toggleAssignee = (userId: string) => {
@@ -359,6 +400,32 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                             value={dueDate}
                             onChange={(e) => setDueDate(e.target.value)}
                             className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-text-main focus:border-black focus:ring-1 focus:ring-black/5 focus:shadow-sm outline-none transition-all h-[46px]"
+                        />
+                    </div>
+                </div>
+
+                 {/* TAGS SECTION */}
+                 <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Etiquetas</label>
+                    <div className="w-full bg-white border border-gray-200 rounded-2xl px-2 py-2 text-sm focus-within:border-black focus-within:ring-1 focus-within:ring-black/5 focus-within:shadow-sm transition-all flex flex-wrap gap-2 items-center min-h-[46px]">
+                        {tags.map(tag => (
+                            <span 
+                              key={tag} 
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1 ${getTagStyles(tag)}`}
+                            >
+                                {tag}
+                                <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-600">
+                                    <span className="material-symbols-outlined text-[14px]">close</span>
+                                </button>
+                            </span>
+                        ))}
+                        <input 
+                            type="text" 
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={handleAddTag}
+                            placeholder={tags.length === 0 ? "Digite e aperte Enter..." : "Adicionar..."}
+                            className="flex-1 min-w-[120px] bg-transparent outline-none border-none text-sm text-text-main placeholder:text-gray-400 ml-1"
                         />
                     </div>
                 </div>

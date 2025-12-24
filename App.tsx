@@ -159,7 +159,7 @@ const App: React.FC = () => {
     ));
   };
 
-  const handleAddTask = (title: string, description: string, assigneeIds: string[], dueDate: string, status: Task['status'], sourceMessage?: Message) => {
+  const handleAddTask = (title: string, description: string, assigneeIds: string[], dueDate: string, status: Task['status'], tags: string[], sourceMessage?: Message) => {
     // Map IDs to User objects
     const assignees = assigneeIds.map(id => Object.values(USERS).find(u => u.id === id)).filter(Boolean) as User[];
     // Default to 'me' if empty, or just leave empty depending on logic. Let's default to me if nothing selected.
@@ -185,7 +185,7 @@ const App: React.FC = () => {
       status: status, // Use the selected status
       date: 'Hoje',
       dueDate: dueDate,
-      tags: [],
+      tags: tags,
       assignees: finalAssignees, 
       commentsCount: initialComments.length,
       checklist: [],
@@ -196,7 +196,7 @@ const App: React.FC = () => {
     setRightPanelMode('tasks');
   };
 
-  const handleEditTask = (taskId: string, title: string, description: string, assigneeIds: string[], dueDate: string, status: Task['status']) => {
+  const handleEditTask = (taskId: string, title: string, description: string, assigneeIds: string[], dueDate: string, status: Task['status'], tags: string[]) => {
       const assignees = assigneeIds.map(id => Object.values(USERS).find(u => u.id === id)).filter(Boolean) as User[];
       const finalAssignees = assignees.length > 0 ? assignees : [USERS.me];
 
@@ -208,7 +208,8 @@ const App: React.FC = () => {
                   description,
                   assignees: finalAssignees,
                   dueDate,
-                  status // Update status
+                  status, // Update status
+                  tags
               };
           }
           return t;
