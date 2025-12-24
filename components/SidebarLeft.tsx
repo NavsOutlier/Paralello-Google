@@ -67,7 +67,7 @@ export const SidebarLeft: React.FC<SidebarLeftProps> = ({
       <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
         {conversations.length > 0 && (
           <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Conversas</h3>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">clientes</h3>
             <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded font-medium">{filteredConversations.length}</span>
           </div>
         )}
@@ -123,7 +123,7 @@ export const SidebarLeft: React.FC<SidebarLeftProps> = ({
         )}
 
         <div className="px-4 pt-5 pb-2 mt-6 border-t border-neutral-border flex items-center justify-between">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Outros</h3>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Colaboradoes</h3>
         </div>
 
         <div className="group flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 border-transparent transition-colors" onClick={() => alert("Exemplo estático de colaborador")}>

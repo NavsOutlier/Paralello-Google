@@ -32,6 +32,7 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
   // Menu states
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isAutomationMenuOpen, setIsAutomationMenuOpen] = useState(false);
+  const [activeStatusMenuTaskId, setActiveStatusMenuTaskId] = useState<string | null>(null);
   
   // Filter states
   const [activeFilter, setActiveFilter] = useState<'status' | 'assignee' | 'tags' | null>(null);
@@ -62,14 +63,20 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
   // Handle outside click for Menus
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (statusMenuRef.current && !statusMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement;
+      
+      if (statusMenuRef.current && !statusMenuRef.current.contains(target as Node)) {
         setIsStatusMenuOpen(false);
       }
-      if (automationMenuRef.current && !automationMenuRef.current.contains(event.target as Node)) {
+      if (automationMenuRef.current && !automationMenuRef.current.contains(target as Node)) {
         setIsAutomationMenuOpen(false);
       }
-      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(target as Node)) {
         setActiveFilter(null);
+      }
+      // Close quick status menu if clicking outside any trigger
+      if (!target.closest('.status-menu-trigger')) {
+        setActiveStatusMenuTaskId(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -92,8 +99,9 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
     setIsStatusMenuOpen(false);
   };
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>, task: Task) => {
-    onUpdateTask({ ...task, status: e.target.value as Task['status'] });
+  const handleQuickStatusUpdate = (newStatus: Task['status'], task: Task) => {
+    onUpdateTask({ ...task, status: newStatus });
+    setActiveStatusMenuTaskId(null);
   };
 
   // --- ACTIONS ---
@@ -767,20 +775,47 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
           >
             <div className="flex justify-between items-start mb-2">
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {/* Quick Status Change */}
-                <div className="relative group/status-quick">
-                    <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(e, task)}
-                        className={`${getStatusColor(task.status)} border appearance-none text-[10px] pl-2 pr-4 py-0.5 rounded-full font-bold uppercase tracking-wide cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-0 focus:ring-black/20`}
+                
+                {/* NEW CUSTOM STATUS DROPDOWN (Replaces native select) */}
+                <div className="relative status-menu-trigger">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveStatusMenuTaskId(activeStatusMenuTaskId === task.id ? null : task.id);
+                        }}
+                        className="flex items-center gap-1.5 px-2 py-1 bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm group/btn"
                     >
-                        <option value="Pendente">Pendente</option>
-                        <option value="Em Progresso">Em Progresso</option>
-                        <option value="Aprovado">Aprovado</option>
-                    </select>
-                     <span className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-current opacity-70">
-                        <span className="material-symbols-outlined text-[10px]">expand_more</span>
-                    </span>
+                        <div className={`w-2 h-2 rounded-full ${
+                            task.status === 'Pendente' ? 'bg-orange-500' :
+                            task.status === 'Em Progresso' ? 'bg-blue-500' :
+                            'bg-green-500'
+                        }`}></div>
+                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide group-hover/btn:text-text-main">{task.status}</span>
+                        <span className="material-symbols-outlined text-[12px] text-gray-400">expand_more</span>
+                    </button>
+
+                    {activeStatusMenuTaskId === task.id && (
+                        <div className="absolute top-full left-0 mt-1 w-36 bg-white rounded-xl shadow-xl border border-gray-100 p-1 z-50 animate-in zoom-in-95 duration-100 origin-top-left">
+                            {['Pendente', 'Em Progresso', 'Aprovado'].map((s) => (
+                                <button
+                                    key={s}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQuickStatusUpdate(s as Task['status'], task);
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-50 ${task.status === s ? 'bg-gray-50 text-black font-bold' : 'text-gray-600'}`}
+                                >
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                        s === 'Pendente' ? 'bg-orange-500' :
+                                        s === 'Em Progresso' ? 'bg-blue-500' :
+                                        'bg-green-500'
+                                    }`}></div>
+                                    {s}
+                                    {task.status === s && <span className="material-symbols-outlined text-[14px] ml-auto">check</span>}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 
                 <span className="text-[10px] text-gray-400">#{task.code}</span>
