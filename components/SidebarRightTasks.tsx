@@ -572,22 +572,24 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
               {/* Controls Row: Assignee & Checklist Button */}
               <div className="flex items-center gap-3 relative z-10">
                 
-                {/* ASSIGNEE STACK */}
-                <div className="flex items-center -space-x-2 bg-gray-50 pl-1 pr-3 py-1.5 rounded-full border border-gray-200" title="Responsáveis">
-                    {selectedTask.assignees.slice(0, 3).map((assignee, index) => (
-                        <div 
-                            key={index}
-                            className="bg-center bg-no-repeat bg-cover rounded-full h-7 w-7 border-2 border-white shadow-sm relative z-10 hover:z-20 hover:scale-110 transition-transform" 
-                            style={{ backgroundImage: `url("${assignee.avatar}")` }}
-                            title={assignee.name}
-                        ></div>
-                    ))}
-                    {selectedTask.assignees.length > 3 && (
-                        <div className="h-7 w-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[9px] font-bold text-gray-600 relative z-0">
-                            +{selectedTask.assignees.length - 3}
-                        </div>
-                    )}
-                    <span className="text-xs font-medium text-text-main ml-3 truncate max-w-[100px]">
+                {/* ASSIGNEE STACK - FIXED OVERLAP ISSUE */}
+                <div className="flex items-center gap-2 bg-gray-50 pl-1 pr-3 py-1.5 rounded-full border border-gray-200" title="Responsáveis">
+                    <div className="flex items-center -space-x-2">
+                        {selectedTask.assignees.slice(0, 3).map((assignee, index) => (
+                            <div 
+                                key={index}
+                                className="bg-center bg-no-repeat bg-cover rounded-full h-7 w-7 border-2 border-white shadow-sm relative z-10 hover:z-20 hover:scale-110 transition-transform" 
+                                style={{ backgroundImage: `url("${assignee.avatar}")` }}
+                                title={assignee.name}
+                            ></div>
+                        ))}
+                        {selectedTask.assignees.length > 3 && (
+                            <div className="h-7 w-7 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[9px] font-bold text-gray-600 relative z-0">
+                                +{selectedTask.assignees.length - 3}
+                            </div>
+                        )}
+                    </div>
+                    <span className="text-xs font-medium text-text-main truncate max-w-[100px]">
                         {selectedTask.assignees.length === 1 ? selectedTask.assignees[0].name.split(' ')[0] : 'Equipe'}
                     </span>
                 </div>

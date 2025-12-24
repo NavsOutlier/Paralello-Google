@@ -33,6 +33,16 @@ const getTagStyles = (tag: string) => {
   return colors[index];
 };
 
+// Status Colors (Pill Style)
+const getStatusPillStyle = (status: Task['status']) => {
+  switch(status) {
+    case 'Pendente': return 'bg-orange-100 text-orange-700 border-orange-200';
+    case 'Em Progresso': return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'Aprovado': return 'bg-green-100 text-green-700 border-green-200';
+    default: return 'bg-gray-100 text-gray-700 border-gray-200';
+  }
+};
+
 export const NewTaskModal: React.FC<NewTaskModalProps> = ({ 
   isOpen, 
   onClose, 
@@ -56,6 +66,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   // Tags State
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
 
   // Dropdown States
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
@@ -65,10 +76,18 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const assigneeDropdownRef = useRef<HTMLDivElement>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const topicDropdownRef = useRef<HTMLDivElement>(null);
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
 
   // Existing Mode State
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [comment, setComment] = useState('');
+
+  // Derived Data
+  const allExistingTags = Array.from(new Set(existingTasks.flatMap(t => t.tags)));
+  const suggestedTags = allExistingTags.filter(tag => 
+    !tags.includes(tag) && 
+    tag.toLowerCase().includes(tagInput.toLowerCase())
+  );
 
   // Handle click outside for dropdowns
   useEffect(() => {
@@ -81,6 +100,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       }
       if (topicDropdownRef.current && !topicDropdownRef.current.contains(event.target as Node)) {
         setIsTopicDropdownOpen(false);
+      }
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(event.target as Node)) {
+        setIsTagDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -109,6 +131,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         setStatus('Pendente');
         setSelectedAssigneeIds([]);
         setTags([]);
+        setTagInput('');
         
         if (existingTasks.length > 0) {
           setSelectedTaskId(existingTasks[0].id);
@@ -145,13 +168,24 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
 
   // Tag Handlers
   const handleAddTag = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      if (!tags.includes(tagInput.trim())) {
-        setTags([...tags, tagInput.trim()]);
+      if (tagInput.trim()) {
+        const newTag = tagInput.trim();
+        if (!tags.includes(newTag)) {
+          setTags([...tags, newTag]);
+        }
+        setTagInput('');
       }
-      setTagInput('');
     }
+  };
+
+  const selectTagFromList = (tag: string) => {
+    if (!tags.includes(tag)) {
+        setTags([...tags, tag]);
+    }
+    setTagInput('');
+    setIsTagDropdownOpen(true); 
   };
 
   const removeTag = (tagToRemove: string) => {
@@ -162,16 +196,6 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
     setSelectedAssigneeIds(prev => 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
-  };
-
-  // Simplified color logic for cleaner UI
-  const getStatusDotColor = (s: Task['status']) => {
-    switch(s) {
-      case 'Pendente': return 'bg-orange-500';
-      case 'Em Progresso': return 'bg-blue-500';
-      case 'Aprovado': return 'bg-green-500';
-      default: return 'bg-gray-300';
-    }
   };
 
   const senderName = initialMessage?.isMe ? 'Você' : users.find(u => u.id === initialMessage?.senderId)?.name || 'Cliente';
@@ -218,8 +242,8 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                     onClick={() => setMode('create')}
                     className={`flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border cursor-pointer transition-all duration-200 ${mode === 'create' ? 'border-black bg-gray-50 shadow-md scale-[1.02]' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'}`}
                 >
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${mode === 'create' ? 'border-black' : 'border-gray-300'}`}>
-                      {mode === 'create' && <div className="w-2.5 h-2.5 rounded-full bg-black"></div>}
+                  <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center ${mode === 'create' ? 'bg-black text-white' : 'text-gray-400'}`}>
+                      <span className="material-symbols-outlined text-[18px]">add</span>
                   </div>
                   <span className="text-sm font-bold text-text-main">Criar Nova Task</span>
                 </div>
@@ -228,8 +252,8 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                     onClick={() => setMode('existing')}
                     className={`flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border cursor-pointer transition-all duration-200 ${mode === 'existing' ? 'border-black bg-gray-50 shadow-md scale-[1.02]' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'}`}
                 >
-                   <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${mode === 'existing' ? 'border-black' : 'border-gray-300'}`}>
-                      {mode === 'existing' && <div className="w-2.5 h-2.5 rounded-full bg-black"></div>}
+                   <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center ${mode === 'existing' ? 'bg-black text-white' : 'text-gray-400'}`}>
+                      <span className="material-symbols-outlined text-[18px]">question_answer</span>
                   </div>
                   <span className="text-sm font-bold text-text-main">Vincular a Existente</span>
                 </div>
@@ -274,7 +298,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Comentário</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Comentário / Atualização</label>
                   <textarea 
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
@@ -300,55 +324,74 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                   />
                 </div>
 
-                {/* CUSTOM MULTI-SELECT ASSIGNEE - CLEANER UI */}
+                {/* CUSTOM MULTI-SELECT ASSIGNEE - UPDATED LAYOUT */}
                 <div className="relative" ref={assigneeDropdownRef}>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Responsáveis</label>
-                    <button
-                        type="button"
+                    <div
                         onClick={() => setIsAssigneeDropdownOpen(!isAssigneeDropdownOpen)}
-                        className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-left flex items-center justify-between hover:border-gray-300 hover:shadow-sm focus:border-black focus:ring-1 focus:ring-black/5 transition-all outline-none min-h-[50px]"
+                        className="w-full bg-white border border-gray-200 rounded-2xl px-2 py-2 text-sm min-h-[50px] flex items-center justify-between cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all group"
                     >
-                        {selectedAssigneeIds.length === 0 ? (
-                            <span className="text-gray-400">Selecionar responsáveis...</span>
-                        ) : (
-                            <div className="flex flex-wrap gap-2 items-center">
-                                {selectedAssigneeIds.map(id => {
-                                    const user = users.find(u => u.id === id);
-                                    return user ? (
-                                        <div key={id} className="flex items-center gap-1.5 bg-white pl-1 pr-2 py-0.5 rounded-full border border-gray-200 shadow-sm">
-                                            <img 
-                                                src={user.avatar} 
-                                                alt={user.name} 
-                                                className="h-5 w-5 rounded-full object-cover" 
-                                            />
-                                            <span className="text-xs font-medium text-text-main">{user.name.split(' ')[0]}</span>
-                                        </div>
-                                    ) : null;
-                                })}
-                            </div>
-                        )}
-                        <span className="material-symbols-outlined text-gray-400 text-[20px]">expand_more</span>
-                    </button>
+                         <div className="flex flex-wrap gap-1.5 flex-1 px-2">
+                            {selectedAssigneeIds.length === 0 && (
+                                <span className="text-gray-400 py-1">Selecionar responsáveis...</span>
+                            )}
+                            {selectedAssigneeIds.map(id => {
+                                const user = users.find(u => u.id === id);
+                                if (!user) return null;
+                                return (
+                                    <div key={id} className="flex items-center gap-1.5 bg-gray-50 pl-1 pr-2 py-1 rounded-full border border-gray-200">
+                                         <div 
+                                            className="bg-center bg-no-repeat bg-cover rounded-full h-5 w-5 border border-white" 
+                                            style={{ backgroundImage: `url("${user.avatar}")` }}
+                                        ></div>
+                                        <span className="text-xs font-semibold text-text-main">{user.name.split(' ')[0]}</span>
+                                        <button 
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleAssignee(user.id);
+                                            }}
+                                            className="ml-0.5 text-gray-400 hover:text-red-500 rounded-full flex items-center justify-center w-4 h-4"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                         </div>
+                        <div className="px-2 text-gray-400 border-l border-gray-100 pl-2 ml-1 group-hover:text-gray-600 transition-colors">
+                             <span className="material-symbols-outlined text-[20px] flex">expand_more</span>
+                        </div>
+                    </div>
 
                     {/* Dropdown Menu */}
                     {isAssigneeDropdownOpen && (
-                        <div className="absolute z-20 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1.5 animate-in fade-in zoom-in-95 duration-100">
+                        <div className="absolute z-30 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar p-2 animate-in fade-in zoom-in-95 duration-100">
+                             <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider mb-1">Sugestões</div>
                             {assignableUsers.map(user => {
                                 const isSelected = selectedAssigneeIds.includes(user.id);
                                 return (
                                     <div 
                                         key={user.id}
                                         onClick={() => toggleAssignee(user.id)}
-                                        className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-primary/10' : 'hover:bg-gray-50'}`}
+                                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all group ${isSelected ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
                                     >
-                                        <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary' : 'border-gray-300 bg-white'}`}>
-                                                {isSelected && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
+                                        <div className="flex items-center gap-3">
+                                            <div 
+                                                className="bg-center bg-no-repeat bg-cover rounded-full h-8 w-8 border border-gray-200 group-hover:border-gray-300 transition-colors" 
+                                                style={{ backgroundImage: `url("${user.avatar}")` }}
+                                            ></div>
+                                            <div>
+                                                <div className={`text-sm ${isSelected ? 'font-bold text-text-main' : 'font-medium text-text-main'}`}>{user.name}</div>
+                                                <div className="text-[11px] text-gray-400">@{user.id}</div>
+                                            </div>
                                         </div>
-                                        <div 
-                                            className="bg-center bg-no-repeat bg-cover rounded-full h-7 w-7 border border-gray-100 shrink-0" 
-                                            style={{ backgroundImage: `url("${user.avatar}")` }}
-                                        ></div>
-                                        <span className={`text-sm ${isSelected ? 'font-bold text-text-main' : 'text-text-secondary'}`}>{user.name}</span>
+                                        
+                                        {isSelected && (
+                                            <div className="bg-black text-white rounded-full p-1 flex items-center justify-center">
+                                                 <span className="material-symbols-outlined text-[14px]">check</span>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -357,17 +400,18 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-5">
-                    {/* STATUS DROPDOWN - CLEANER TRIGGER */}
+                    {/* STATUS DROPDOWN - UPDATED TO PILLS */}
                     <div className="relative" ref={statusDropdownRef}>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Status</label>
                         <button
                             type="button"
                             onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                            className={`w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-left flex items-center justify-between hover:border-gray-300 hover:shadow-sm focus:border-black focus:ring-1 focus:ring-black/5 transition-all outline-none h-[46px]`}
+                            className={`w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-left flex items-center justify-between hover:border-gray-300 hover:shadow-sm focus:border-black focus:ring-1 focus:ring-black/5 transition-all outline-none h-[50px]`}
                         >
                             <div className="flex items-center gap-2">
-                                <div className={`w-2.5 h-2.5 rounded-full ${getStatusDotColor(status)}`}></div>
-                                <span className="text-text-main font-medium">{status}</span>
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getStatusPillStyle(status)}`}>
+                                    {status}
+                                </span>
                             </div>
                             <span className="material-symbols-outlined text-gray-400 text-[20px]">expand_more</span>
                         </button>
@@ -375,15 +419,15 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                         {isStatusDropdownOpen && (
                             <div className="absolute z-20 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl p-1.5 animate-in fade-in zoom-in-95 duration-100">
                                 {['Pendente', 'Em Progresso', 'Aprovado'].map((s) => {
-                                    const dotColor = getStatusDotColor(s as Task['status']);
                                     return (
                                         <div 
                                             key={s}
                                             onClick={() => { setStatus(s as Task['status']); setIsStatusDropdownOpen(false); }}
                                             className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all hover:bg-gray-50 ${status === s ? 'bg-gray-50' : ''}`}
                                         >
-                                            <div className={`w-2 h-2 rounded-full ${dotColor}`}></div>
-                                            <span className={`text-sm font-medium text-text-main`}>{s}</span>
+                                            <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getStatusPillStyle(s as Task['status'])}`}>
+                                                {s}
+                                            </span>
                                             {status === s && <span className="material-symbols-outlined text-[16px] ml-auto text-black">check</span>}
                                         </div>
                                     );
@@ -399,15 +443,22 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                             type="date"
                             value={dueDate}
                             onChange={(e) => setDueDate(e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-text-main focus:border-black focus:ring-1 focus:ring-black/5 focus:shadow-sm outline-none transition-all h-[46px]"
+                            className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-text-main focus:border-black focus:ring-1 focus:ring-black/5 focus:shadow-sm outline-none transition-all h-[50px]"
                         />
                     </div>
                 </div>
 
-                 {/* TAGS SECTION */}
-                 <div>
+                 {/* TAGS SECTION WITH AUTOCOMPLETE */}
+                 <div className="relative" ref={tagDropdownRef}>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Etiquetas</label>
-                    <div className="w-full bg-white border border-gray-200 rounded-2xl px-2 py-2 text-sm focus-within:border-black focus-within:ring-1 focus-within:ring-black/5 focus-within:shadow-sm transition-all flex flex-wrap gap-2 items-center min-h-[46px]">
+                    <div 
+                        className="w-full bg-white border border-gray-200 rounded-2xl px-2 py-2 text-sm focus-within:border-black focus-within:ring-1 focus-within:ring-black/5 focus-within:shadow-sm transition-all flex flex-wrap gap-2 items-center min-h-[50px] cursor-text"
+                        onClick={() => {
+                            // Focus the input when clicking container
+                            const inputEl = document.getElementById('tag-input-field');
+                            if(inputEl) inputEl.focus();
+                        }}
+                    >
                         {tags.map(tag => (
                             <span 
                               key={tag} 
@@ -420,14 +471,64 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                             </span>
                         ))}
                         <input 
+                            id="tag-input-field"
                             type="text" 
                             value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
+                            onChange={(e) => {
+                                setTagInput(e.target.value);
+                                setIsTagDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsTagDropdownOpen(true)}
                             onKeyDown={handleAddTag}
-                            placeholder={tags.length === 0 ? "Digite e aperte Enter..." : "Adicionar..."}
+                            placeholder={tags.length === 0 ? "Adicionar tag (digite)..." : "Adicionar..."}
                             className="flex-1 min-w-[120px] bg-transparent outline-none border-none text-sm text-text-main placeholder:text-gray-400 ml-1"
+                            autoComplete="off"
                         />
                     </div>
+
+                    {/* Tag Suggestions Dropdown */}
+                    {isTagDropdownOpen && (suggestedTags.length > 0 || tagInput) && (
+                         <div className="absolute z-20 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1.5 animate-in fade-in zoom-in-95 duration-100">
+                            {suggestedTags.length > 0 && (
+                                <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider mb-1">Sugestões</div>
+                            )}
+                            
+                            {/* Option to add what user typed if it's new */}
+                            {tagInput && !tags.includes(tagInput) && !suggestedTags.includes(tagInput) && (
+                                 <button 
+                                    type="button"
+                                    onClick={() => {
+                                        if (tagInput.trim()) {
+                                            setTags([...tags, tagInput.trim()]);
+                                            setTagInput('');
+                                        }
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 text-text-main flex items-center gap-2 transition-colors mb-1"
+                                >
+                                    <span className="material-symbols-outlined text-[16px] text-gray-400">add</span>
+                                    Criar "{tagInput}"
+                                </button>
+                            )}
+
+                            {suggestedTags.map(tag => (
+                                <button 
+                                    key={tag}
+                                    type="button"
+                                    onClick={() => selectTagFromList(tag)}
+                                    className="w-full text-left px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 text-text-main flex items-center gap-2 transition-colors"
+                                >
+                                    <span className={`w-2 h-2 rounded-full ${getTagStyles(tag).split(' ')[0]}`}></span>
+                                    {tag}
+                                </button>
+                            ))}
+                            
+                            {suggestedTags.length === 0 && !tagInput && (
+                                <div className="px-3 py-2 text-xs text-gray-400 italic text-center">
+                                    Nenhuma tag encontrada
+                                </div>
+                            )}
+                         </div>
+                    )}
                 </div>
                 
                 <div>
@@ -457,9 +558,12 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             </button>
             <button 
             onClick={mode === 'existing' ? handleAttachSubmit : (mode === 'edit' ? handleEditSubmit : handleCreateSubmit)}
-            className="px-6 py-3 rounded-2xl text-sm font-bold text-white bg-black hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl active:scale-95"
+            className="px-6 py-3 rounded-2xl text-sm font-bold text-white bg-black hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center gap-2"
             >
-            {mode === 'edit' ? 'Salvar Alterações' : (mode === 'existing' ? 'Adicionar Comentário' : 'Criar Task')}
+             {mode === 'existing' && <span className="material-symbols-outlined text-[18px]">send</span>}
+             {mode === 'create' && <span className="material-symbols-outlined text-[18px]">add</span>}
+             {mode === 'edit' && <span className="material-symbols-outlined text-[18px]">save</span>}
+            {mode === 'edit' ? 'Salvar' : (mode === 'existing' ? 'Adicionar Comentário' : 'Criar Task')}
             </button>
         </div>
       </div>
