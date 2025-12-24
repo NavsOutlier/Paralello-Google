@@ -966,6 +966,13 @@ export const SidebarRightTasks: React.FC<SidebarRightTasksProps> = ({
             onClick={() => setSelectedTaskId(task.id)}
             className={`bg-white p-4 rounded-xl shadow-card hover:shadow-card-hover border border-transparent hover:border-primary/20 transition-all cursor-pointer group relative ${task.status === 'Aprovado' ? 'opacity-75 bg-gray-50' : ''}`}
           >
+            {/* Unread Task Comments Badge */}
+            {(task.unreadCommentsCount && task.unreadCommentsCount > 0) ? (
+                <div className="absolute -top-1.5 -right-1.5 bg-red-500 text-white w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shadow-sm z-10 ring-2 ring-white">
+                    {task.unreadCommentsCount}
+                </div>
+            ) : null}
+
             <div className="flex justify-between items-start mb-2">
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 

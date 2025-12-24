@@ -76,10 +76,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           ></div>
           <div className="flex flex-col">
             <h1 className="text-text-main text-base font-bold leading-tight">{activeUser.name} - Projeto Website</h1>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.4)]"></span>
-              <span className="text-text-secondary text-xs font-medium">Online agora</span>
-            </div>
+            {/* Status removed as requested */}
           </div>
         </div>
         <div className="flex items-center gap-2">

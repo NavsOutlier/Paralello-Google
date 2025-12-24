@@ -46,6 +46,7 @@ export interface Task {
   tags: string[];
   assignees: User[]; // Changed from single assignee to array
   commentsCount: number;
+  unreadCommentsCount?: number; // Added to track unread messages inside the task
   checklist: ChecklistItem[];
   comments: TaskComment[];
   sourceMessage?: Message;
@@ -56,9 +57,24 @@ export interface Conversation {
   user: User;
   lastMessage: string;
   time: string;
-  unreadCount: number;
+  unreadCount: number; // Main chat unread count
+  unreadTaskCount?: number; // Sum of unread messages from all tasks associated with this client
   isGroup?: boolean;
   mentionsMe?: boolean;
+  type: 'client' | 'internal'; // Added to distinguish chat types
+}
+
+export type NotificationType = 'client_message' | 'internal_message' | 'mention';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  text: string;
+  time: string;
+  read: boolean;
+  conversationId: string; // To navigate to the correct context
+  senderUser: User;
 }
 
 export type RightPanelMode = 'tasks' | 'client-info';

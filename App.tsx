@@ -4,7 +4,8 @@ import { ChatArea } from './components/ChatArea';
 import { SidebarRightTasks } from './components/SidebarRightTasks';
 import { ClientInfoPanel } from './components/ClientInfoPanel';
 import { NewTaskModal } from './components/NewTaskModal';
-import { Conversation, Message, RightPanelMode, Task, User, TaskComment, ChecklistItem } from './types';
+import { NotificationsDropdown } from './components/NotificationsDropdown';
+import { Conversation, Message, RightPanelMode, Task, User, TaskComment, ChecklistItem, Notification } from './types';
 
 // --- MOCK DATA ---
 
@@ -19,9 +20,56 @@ const USERS: Record<string, User> = {
 };
 
 const INITIAL_CONVERSATIONS: Conversation[] = [
-  { id: '1', user: USERS.ana, lastMessage: 'Preciso alterar o prazo do projeto...', time: '10:42', unreadCount: 0 },
-  { id: '2', user: USERS.techflow, lastMessage: 'pode verificar isso?', time: '09:15', unreadCount: 2, mentionsMe: true },
-  { id: '3', user: USERS.mj, lastMessage: 'Ok, combinado.', time: 'Sex', unreadCount: 0 },
+  // Clients
+  { id: '1', user: USERS.ana, lastMessage: 'Preciso alterar o prazo do projeto...', time: '10:42', unreadCount: 0, unreadTaskCount: 3, type: 'client' }, // 3 unread task comments
+  { id: '2', user: USERS.techflow, lastMessage: 'pode verificar isso?', time: '09:15', unreadCount: 2, unreadTaskCount: 0, mentionsMe: true, type: 'client' }, // Chat unread
+  { id: '3', user: USERS.mj, lastMessage: 'Ok, combinado.', time: 'Sex', unreadCount: 0, unreadTaskCount: 0, type: 'client' },
+  // Internal
+  { id: '4', user: USERS.rafael, lastMessage: 'Deploy em produção finalizado.', time: '11:20', unreadCount: 1, type: 'internal' },
+  { id: '5', user: USERS.julia, lastMessage: 'Te mandei os assets no Figma.', time: 'Ontem', unreadCount: 0, type: 'internal' },
+];
+
+const INITIAL_NOTIFICATIONS: Notification[] = [
+  { 
+    id: 'n1', 
+    type: 'mention', 
+    title: 'TechFlow Inc. mencionou você', 
+    text: '@você pode verificar isso?', 
+    time: '09:15', 
+    read: false, 
+    conversationId: '2',
+    senderUser: USERS.techflow
+  },
+  { 
+    id: 'n2', 
+    type: 'client_message', 
+    title: 'Nova mensagem de TechFlow Inc.', 
+    text: 'Olá equipe, o servidor de staging está instável.', 
+    time: '09:10', 
+    read: false, 
+    conversationId: '2',
+    senderUser: USERS.techflow
+  },
+  { 
+    id: 'n3', 
+    type: 'internal_message', 
+    title: 'Rafael (Dev) enviou uma mensagem', 
+    text: 'Deploy em produção finalizado. Pode testar?', 
+    time: '11:20', 
+    read: false, 
+    conversationId: '4',
+    senderUser: USERS.rafael
+  },
+  { 
+    id: 'n4', 
+    type: 'client_message', 
+    title: 'Ana Souza enviou um anexo', 
+    text: 'Também notei um pequeno bug no checkout mobile...', 
+    time: 'Ontem', 
+    read: true, 
+    conversationId: '1',
+    senderUser: USERS.ana
+  }
 ];
 
 const INITIAL_MESSAGES: Message[] = [
@@ -38,6 +86,14 @@ const INITIAL_MESSAGES: Message[] = [
   // CONVERSATION 3 (Maria Julia)
   { id: '7', conversationId: '3', senderId: 'me', timestamp: 'Sex', text: 'Enviamos o orçamento revisado.', type: 'text', isMe: true, read: true },
   { id: '8', conversationId: '3', senderId: 'mj', timestamp: 'Sex', text: 'Ok, combinado. Vou aprovar na segunda.', type: 'text', isMe: false },
+
+  // CONVERSATION 4 (Rafael)
+  { id: '9', conversationId: '4', senderId: 'rafael', timestamp: '11:15', text: 'Cara, terminei o fix daquele bug de pagamento.', type: 'text', isMe: false },
+  { id: '10', conversationId: '4', senderId: 'rafael', timestamp: '11:20', text: 'Deploy em produção finalizado. Pode testar?', type: 'text', isMe: false },
+
+  // CONVERSATION 5 (Julia)
+  { id: '11', conversationId: '5', senderId: 'julia', timestamp: 'Ontem', text: 'Te mandei os assets no Figma.', type: 'text', isMe: false },
+  { id: '12', conversationId: '5', senderId: 'me', timestamp: 'Ontem', text: 'Valeu, vou baixar agora.', type: 'text', isMe: true, read: true },
 ];
 
 const INITIAL_TASKS: Task[] = [
@@ -54,6 +110,7 @@ const INITIAL_TASKS: Task[] = [
     tags: [], 
     assignees: [USERS.rafael], 
     commentsCount: 2,
+    unreadCommentsCount: 2, // UNREAD IN TASK
     checklist: [
       { id: 'c1', text: 'Reproduzir bug no iOS Simulator', completed: true },
       { id: 'c2', text: 'Verificar logs do servidor', completed: false },
@@ -75,6 +132,7 @@ const INITIAL_TASKS: Task[] = [
     tags: ['Design', 'Urgente'], 
     assignees: [USERS.julia, USERS.lucas], 
     commentsCount: 5,
+    unreadCommentsCount: 1, // UNREAD IN TASK
     checklist: [],
     comments: []
   },
@@ -89,6 +147,7 @@ const INITIAL_TASKS: Task[] = [
     tags: [], 
     assignees: [USERS.lucas], 
     commentsCount: 12,
+    unreadCommentsCount: 0,
     checklist: [
       { id: 'c1', text: 'Criar conta de sandbox', completed: true },
     ],
@@ -123,15 +182,19 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   
   // UI State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedMessageForTask, setSelectedMessageForTask] = useState<Message | null>(null);
-  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null); // New state for editing
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const activeConversation = conversations.find(c => c.id === activeConversationId) || conversations[0];
   const activeUser = activeConversation.user;
+  
+  const unreadNotificationsCount = notifications.filter(n => !n.read).length;
 
   // Filter Data based on Active Conversation
   const activeMessages = messages.filter(m => m.conversationId === activeConversationId);
@@ -188,6 +251,7 @@ const App: React.FC = () => {
       tags: tags,
       assignees: finalAssignees, 
       commentsCount: initialComments.length,
+      unreadCommentsCount: 0,
       checklist: [],
       comments: initialComments,
       sourceMessage: sourceMessage
@@ -272,6 +336,41 @@ const App: React.FC = () => {
     }, 3000);
   };
 
+  // --- NOTIFICATION HANDLERS ---
+  const handleNotificationClick = (notification: Notification) => {
+    // 1. Mark as read
+    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+    
+    // 2. Navigate to conversation
+    if (notification.conversationId) {
+        setActiveConversationId(notification.conversationId);
+        
+        // Also update unread count for conversation if applicable
+        setConversations(prev => prev.map(c => {
+            if (c.id === notification.conversationId) {
+                // Determine if we should clear mention flag or decrease count
+                // Simplified logic: clicking notification clears the specific unread count related to it roughly
+                // For a robust system, we'd need to link specific messages to notifications deeper
+                const newCount = Math.max(0, c.unreadCount - 1);
+                return { 
+                    ...c, 
+                    unreadCount: newCount,
+                    mentionsMe: notification.type === 'mention' ? false : c.mentionsMe
+                };
+            }
+            return c;
+        }));
+    }
+    
+    setIsNotificationsOpen(false);
+  };
+
+  const handleMarkAllNotificationsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    // Also clear conversation badges for visual consistency
+    setConversations(prev => prev.map(c => ({ ...c, unreadCount: 0, mentionsMe: false })));
+  };
+
   // Resize Logic
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -296,24 +395,37 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Top Navigation */}
-      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-neutral-border bg-white px-6 py-3 h-16 z-20">
+      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-neutral-border bg-white px-6 py-3 h-16 z-20 relative">
         <div className="flex items-center gap-3 text-text-main">
           <div className="size-8 text-primary flex items-center justify-center bg-primary/10 rounded-lg">
             <span className="material-symbols-outlined text-2xl">grid_view</span>
           </div>
           <h2 className="text-text-main text-lg font-bold leading-tight tracking-[-0.015em]">Paralello</h2>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 relative">
           <div className="hidden md:flex items-center gap-2 text-sm text-text-secondary mr-4">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary"></span> Online</span>
           </div>
+          
+          {/* Notification Button */}
           <button 
-            className="flex items-center justify-center overflow-hidden rounded-lg h-9 w-9 bg-neutral-100 hover:bg-neutral-200 text-text-main transition-colors relative"
-            onClick={() => alert("Você não tem novas notificações.")}
+            className={`flex items-center justify-center overflow-hidden rounded-lg h-9 w-9 transition-colors relative ${isNotificationsOpen ? 'bg-primary text-black shadow-inner' : 'bg-neutral-100 hover:bg-neutral-200 text-text-main'}`}
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
           >
             <span className="material-symbols-outlined text-xl">notifications</span>
-            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+            {unreadNotificationsCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500 ring-2 ring-white"></span>
+            )}
           </button>
+          
+          <NotificationsDropdown 
+             isOpen={isNotificationsOpen}
+             notifications={notifications}
+             onReadAndNavigate={handleNotificationClick}
+             onClose={() => setIsNotificationsOpen(false)}
+             onMarkAllRead={handleMarkAllNotificationsRead}
+          />
+
           <button className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 bg-primary hover:bg-primary-dark transition-colors text-text-main text-sm font-bold shadow-sm">
             <span className="truncate">Meu Perfil</span>
           </button>
